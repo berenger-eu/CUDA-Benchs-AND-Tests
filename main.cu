@@ -113,6 +113,7 @@ auto test_cu_partition(const std::vector<ValType>& values,
     return results;
 }
 
+/////////////////////////////////////////////////////////////
 
 template <int nbThreadsPerBlock>
 __global__ void core_test_sm(const ValType* values, ValType* results, const int nbLoops){
