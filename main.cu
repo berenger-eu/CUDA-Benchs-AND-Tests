@@ -49,8 +49,8 @@ void Switch(const int choice, Func&& f){
 
 using ValType = double;
 
-__device__ __host__ int targetNeigh(const int thread, const int idx){
-    const int pos = thread + (thread & idx ? -idx : +idx);
+__device__ __host__ unsigned int targetNeigh(const unsigned int thread, const unsigned int idx){
+    const unsigned int pos = (thread ^ idx);
     assert(0 <= pos);
     assert(pos < 32);
     return pos;
@@ -66,14 +66,14 @@ __global__ void core_test(const ValType* values, ValType* results, const int nbL
 
 
     for(int idxLoop = 0 ; idxLoop < nbLoops ; ++idxLoop){
-        for(int idx = 1 ; idx < 32 ; idx *= 2){
-            const int neighIdx = targetNeigh(threadIdxInWarp, idx);
+        for(unsigned int idx = 1 ; idx < 32 ; idx *= 2){
+            const unsigned int neighIdx = targetNeigh(threadIdxInWarp, idx);
             buffer[threadIdxInWarp] += __shfl_xor_sync(0xffffffff, buffer[neighIdx], idx, 32);
 
             const int step = idx*2;
-            for(int idxCoverage = step ; idxCoverage < 32 ; idxCoverage += step){
-                const int recvFor = (threadIdxInWarp + idxCoverage)%32;
-                const int sendFor = (neighIdx + idxCoverage)%32;
+            for(unsigned int idxCoverage = step ; idxCoverage < 32 ; idxCoverage += step){
+                const unsigned int recvFor = (threadIdxInWarp + idxCoverage)%32u;
+                const unsigned int sendFor = (neighIdx + idxCoverage)%32u;
                 buffer[recvFor] += __shfl_xor_sync(0xffffffff, buffer[sendFor], idx, 32);
             }
         }
