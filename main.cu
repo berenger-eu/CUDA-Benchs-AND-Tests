@@ -49,13 +49,6 @@ void Switch(const int choice, Func&& f){
 
 using ValType = double;
 
-__device__ __host__ unsigned int targetNeigh(const unsigned int thread, const unsigned int idx){
-    const unsigned int pos = (thread ^ idx);
-    assert(0 <= pos);
-    assert(pos < 32);
-    return pos;
-}
-
 __global__ void core_test(const ValType* values, ValType* results, const int nbLoops){
     const int threadIdxInWarp = threadIdx.x%32;
 
@@ -67,7 +60,7 @@ __global__ void core_test(const ValType* values, ValType* results, const int nbL
 
     for(int idxLoop = 0 ; idxLoop < nbLoops ; ++idxLoop){
         for(unsigned int idx = 1 ; idx < 32 ; idx *= 2){
-            const unsigned int neighIdx = targetNeigh(threadIdxInWarp, idx);
+            const unsigned int neighIdx = (threadIdxInWarp ^ idx);
             buffer[threadIdxInWarp] += __shfl_xor_sync(0xffffffff, buffer[neighIdx], idx, 32);
 
             const int step = idx*2;
@@ -113,6 +106,62 @@ auto test_cu_partition(const std::vector<ValType>& values,
     return results;
 }
 
+
+
+/////////////////////////////////////////////////////////////
+
+__global__ void core_test_v2(const ValType* values, ValType* results, const int nbLoops){
+    const int threadIdxInWarp = threadIdx.x%32;
+
+    ValType buffer[32];
+    for(int idxVal = 0 ; idxVal < 32 ; ++idxVal){
+        buffer[idxVal] = values[threadIdxInWarp*32 + idxVal];
+    }
+
+    for(int idxLoop = 0 ; idxLoop < nbLoops ; ++idxLoop){
+        for(unsigned int idx = 1 ; idx < 32 ; idx += 1){
+            const unsigned int neighPosDest = (threadIdxInWarp-threadIdxInWarp+32)%32;
+            const unsigned int neighPosSrc = (threadIdxInWarp+threadIdxInWarp)%32;
+            const unsigned int neighIdxSrc = (threadIdxInWarp ^ neighPosSrc);
+
+            buffer[neighPosSrc] += __shfl_xor_sync(0xffffffff, buffer[neighPosDest], neighIdxSrc, 32);
+        }
+    }
+
+    results[blockIdx.x*blockDim.x + threadIdx.x] = buffer[threadIdxInWarp];
+}
+
+auto test_cu_partition_v2(const std::vector<ValType>& values,
+                       const int nbGroupsTest,
+                       const int nbThreadsTest,
+                       const int NbLoops){
+    assert(values.size() == 32*32);
+    ValType* cuValues;
+    CUDA_ASSERT( cudaMalloc(&cuValues, 32*32 * sizeof(ValType)) );
+    CUDA_ASSERT( cudaMemcpy(cuValues, values.data(),
+                            32*32 * sizeof(ValType),
+                            cudaMemcpyHostToDevice) );
+
+    ValType* cuResults;
+    CUDA_ASSERT( cudaMalloc(&cuResults, nbThreadsTest*nbGroupsTest * sizeof(ValType)) );
+
+    SpTimer timer;
+
+    core_test_v2<<<nbGroupsTest,nbThreadsTest>>>(cuValues, cuResults, NbLoops);
+    CUDA_ASSERT(cudaDeviceSynchronize());
+
+    timer.stop();
+    std::cout << "WARP V2 = " << timer.getElapsed() << std::endl;
+
+    std::vector<ValType> results(nbThreadsTest*nbGroupsTest);
+    CUDA_ASSERT( cudaMemcpy(results.data(), cuResults, nbThreadsTest*nbGroupsTest * sizeof(ValType),
+                            cudaMemcpyDeviceToHost) );
+
+    CUDA_ASSERT( cudaFree(cuValues) );
+
+    return results;
+}
+
 /////////////////////////////////////////////////////////////
 
 template <int nbThreadsPerBlock>
@@ -123,11 +172,9 @@ __global__ void core_test_sm(const ValType* values, ValType* results, const int 
     const int idxWarpInBlock = (threadIdx.x/warpSize);
     const int idxThreadInWarp = (threadIdx.x%warpSize);
 
-    const int threadIdxInWarp = threadIdx.x/32;
-
     ValType buffer[32];
     for(int idxVal = 0 ; idxVal < 32 ; ++idxVal){
-        buffer[idxVal] = values[threadIdxInWarp*32 + idxVal];
+        buffer[idxVal] = values[idxThreadInWarp*32 + idxVal];
     }
 
 
@@ -138,6 +185,7 @@ __global__ void core_test_sm(const ValType* values, ValType* results, const int 
         for(int idxVal = 0 ; idxVal < 32 ; ++idxVal){
             intermediateResults[idxVal][idxThreadInWarp] = buffer[idxVal];
         }
+        __syncwarp();
 
         for(int idxVal = 0 ; idxVal < 32 ; ++idxVal){
             sum += intermediateResults[idxThreadInWarp][idxVal];
@@ -189,7 +237,7 @@ int main(){
     std::vector<ValType> values(32*32);
     for(int idx0 = 0 ; idx0 < 32 ; ++idx0){
         for(int idx1 = 0 ; idx1 < 32 ; ++idx1){
-            values[idx0*32 + idx1] = idx1+1;//(idx0 == 0 ? 1 : 0);
+            values[idx0*32 + idx1] = (idx1+1)*(idx0+1);//(idx0 == 0 ? 1 : 0);
         }
     }
 
@@ -199,6 +247,11 @@ int main(){
         auto results = test_cu_partition(values, nbBlocksTest, nbThreadsTest, 1);
         for(int idx0 = 0 ; idx0 < 32 ; ++idx0){
             std::cout << idx0 << ") " << results[idx0] << std::endl;
+        }
+
+        auto resultsv2 = test_cu_partition(values, nbBlocksTest, nbThreadsTest, 1);
+        for(int idx0 = 0 ; idx0 < 32 ; ++idx0){
+            std::cout << idx0 << ") " << resultsv2[idx0] << std::endl;
         }
 
         auto results_sm = test_cu_partition_sm(values, nbBlocksTest, nbThreadsTest, 1);
@@ -216,6 +269,8 @@ int main(){
                       << " nbThreadsTest " << nbThreadsTest << std::endl;
 
             test_cu_partition(values, nbBlocksTest, nbThreadsTest, NbLoops);
+
+            test_cu_partition_v2(values, nbBlocksTest, nbThreadsTest, NbLoops);
 
             test_cu_partition_sm(values, nbBlocksTest, nbThreadsTest, NbLoops);
         }
