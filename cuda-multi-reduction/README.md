@@ -96,6 +96,12 @@ Thu Feb 23 10:21:49 2023
 |=============================================================================|
 |    0   N/A  N/A      2423      G   /usr/lib/xorg/Xorg                  4MiB |
 +-----------------------------------------------------------------------------+
+$ nvcc --version
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2022 NVIDIA Corporation
+Built on Mon_Oct_24_19:12:58_PDT_2022
+Cuda compilation tools, release 12.0, V12.0.76
+Build cuda_12.0.r12.0/compiler.31968024_0
 ```
 
 ```bash
@@ -186,6 +192,7 @@ Thu Feb 23 10:25:59 2023
 ```
 
 ```bash
+$ module load compiler/gcc/11.2.0 compiler/cuda/11.6 build/cmake
 $ mkdir build && cd build && cmake .. -DCUDA_SM=80 && make && ./main
 # ...
 nbBlocksTest 16 nbThreadsTest 32

@@ -87,6 +87,12 @@ Thu Sep 21 17:06:36 2023
 |=============================================================================|
 |    0   N/A  N/A      2468      G   /usr/lib/xorg/Xorg                  4MiB |
 +-----------------------------------------------------------------------------+
+$ nvcc --version
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2022 NVIDIA Corporation
+Built on Mon_Oct_24_19:12:58_PDT_2022
+Cuda compilation tools, release 12.0, V12.0.76
+Build cuda_12.0.r12.0/compiler.31968024_0
 ```
 
 ```bash
@@ -103,20 +109,20 @@ Done
 
 ```bash
 $ nvidia-smi 
-Thu Feb 23 10:25:59 2023       
+Thu Sep 21 17:17:45 2023       
 +-----------------------------------------------------------------------------+
-| NVIDIA-SMI 510.47.03    Driver Version: 510.47.03    CUDA Version: 11.6     |
+| NVIDIA-SMI 515.43.04    Driver Version: 515.43.04    CUDA Version: 11.7     |
 |-------------------------------+----------------------+----------------------+
 | GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
 | Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
 |                               |                      |               MIG M. |
 |===============================+======================+======================|
 |   0  NVIDIA A100-PCI...  On   | 00000000:21:00.0 Off |                    0 |
-| N/A   32C    P0    32W / 250W |      0MiB / 40960MiB |      0%      Default |
+| N/A   50C    P0    71W / 250W |   5780MiB / 40960MiB |     99%      Default |
 |                               |                      |             Disabled |
 +-------------------------------+----------------------+----------------------+
 |   1  NVIDIA A100-PCI...  On   | 00000000:E2:00.0 Off |                    0 |
-| N/A   31C    P0    32W / 250W |      0MiB / 40960MiB |      0%      Default |
+| N/A   32C    P0    33W / 250W |      2MiB / 40960MiB |      0%      Default |
 |                               |                      |             Disabled |
 +-------------------------------+----------------------+----------------------+
                                                                                
@@ -125,12 +131,19 @@ Thu Feb 23 10:25:59 2023
 |  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
 |        ID   ID                                                   Usage      |
 |=============================================================================|
-|  No running processes found                                                 |
+|    0   N/A  N/A     22633      C   ...n-3.11.0-cupy/bin/python3     2913MiB |
+|    0   N/A  N/A     22703      C   ...n-3.11.0-cupy/bin/python3     2865MiB |
 +-----------------------------------------------------------------------------+
 ```
 
 ```bash
+$ module load compiler/gcc/11.2.0 compiler/cuda/11.6 build/cmake
 $ mkdir build && cd build && cmake .. -DCUDA_SM=80 -DCMAKE_BUILD_TYPE=RELEASE && make && ./main
 # ...
-TODO
+Bench GPU:
+core_test_cu = 2.1448
+Done
+Bench GPUv2:
+core_test_cu = 4.42243
+Done
 ```
