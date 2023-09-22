@@ -41,6 +41,8 @@ The idea is to sum all bits at a given position to build the complete sum.
 Using mask `subReductionMask` allow to filter the bits.
 
 ```cpp
+        // sizeof(unsigned int)*8 can be changed if we know that it can be stoped earlier
+        // or if threads exchange their values to know the max
         int prefixSum = 0;
 
         #pragma unroll
@@ -54,9 +56,9 @@ Using mask `subReductionMask` allow to filter the bits.
 Nice slides are available here:
 https://pages.mini.pw.edu.pl/~kaczmarskik/gpca/resources/Part4-new-cuda-features.pdf
 
-* It is important to understand that the first approach can not be optimized if we know that all the values
+** It is important to understand that the first approach can not be optimized if we know that all the values
 are lower than a given MAX. Whereas, the second approach (which sums the bits) could stop earlier
-if it is known that there are not more 1s after a given position. *
+if it is known that there are not more 1s after a given position. **
 
 # Results
 
